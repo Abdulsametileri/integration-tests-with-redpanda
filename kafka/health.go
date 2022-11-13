@@ -1,9 +1,12 @@
 package kafka
 
-import "github.com/segmentio/kafka-go"
+import (
+	"fmt"
+	"github.com/segmentio/kafka-go"
+)
 
-func CheckHealth(port string) error {
-	conn, err := kafka.Dial("tcp", ":"+port)
+func CheckHealth(port int) error {
+	conn, err := kafka.Dial("tcp", ":"+fmt.Sprintf("%d", port))
 	if err != nil {
 		return err
 	}
