@@ -2,11 +2,13 @@ package integration_tests_with_redpanda
 
 import (
 	"context"
+	"fmt"
 	"github.com/Abdulsametleri/integration-tests-with-redpanda/kafka"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"log"
 	"net"
+	"os"
 	"testing"
 	"time"
 )
@@ -22,15 +24,32 @@ type IntegrationTestSuite struct {
 	lib IntegrationLibraryStrategy
 }
 
+const (
+	RedpandaImage   = "docker.vectorized.io/vectorized/redpanda"
+	RedpandaVersion = "v21.8.1"
+)
+
 func TestIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
 
 	s := new(IntegrationTestSuite)
-	s.lib = &DockerTestStrategy{}
+	s.SetIntegrationLibrary()
 
 	suite.Run(t, s)
+}
+
+func (s *IntegrationTestSuite) SetIntegrationLibrary() {
+	switch os.Getenv("LIBRARY") {
+	case "testcontainers":
+		s.lib = &TestContainerStrategy{}
+	case "dockertest":
+		s.lib = &DockerTestStrategy{}
+	default:
+		fmt.Println("`LIBRARY` environment variable is not set, dockertest is used as default")
+		s.lib = &DockerTestStrategy{}
+	}
 }
 
 func (s *IntegrationTestSuite) SetupSuite() {
@@ -85,7 +104,7 @@ func (s *IntegrationTestSuite) Test_Should_Produce_Successfully() {
 	expectedMessage := kafka.Message{Key: nil, Value: []byte(`{ "say": "hello" }`), Topic: cfg.Consumer.Topic}
 
 	// When
-	ctx, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFunc()
 
 	err := producer.Produce(ctx, expectedMessage)

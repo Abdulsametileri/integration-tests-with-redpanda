@@ -25,18 +25,13 @@ func (t *TestContainerStrategy) RunContainer() error {
 	}
 
 	req := testcontainers.ContainerRequest{
-		Image: "docker.vectorized.io/vectorized/redpanda:v21.8.1",
+		Image: fmt.Sprintf("%s:%s", RedpandaImage, RedpandaVersion),
 		ExposedPorts: []string{
 			fmt.Sprintf("%d:%d/tcp", hostPort, hostPort),
 		},
 		Cmd: []string{
 			"redpanda",
 			"start",
-			"--smp 1",
-			"--reserve-memory 0M",
-			"--overprovisioned",
-			"--node-id 0",
-			"--set redpanda.auto_create_topics_enabled=true",
 			"--kafka-addr", fmt.Sprintf("0.0.0.0:%d", hostPort),
 		},
 		WaitingFor: wait.ForLog("Successfully started Redpanda!"),

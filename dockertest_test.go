@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"time"
 )
 
 // Implement interface
@@ -33,16 +32,11 @@ func (l *DockerTestStrategy) RunContainer() error {
 	}
 
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "docker.vectorized.io/vectorized/redpanda",
-		Tag:        "v21.8.1",
+		Repository: RedpandaImage,
+		Tag:        RedpandaVersion,
 		Cmd: []string{
 			"redpanda",
 			"start",
-			"--smp 1",
-			"--reserve-memory 0M",
-			"--overprovisioned",
-			"--node-id 0",
-			"--set redpanda.auto_create_topics_enabled=true",
 			"--kafka-addr 0.0.0.0:9092",
 			fmt.Sprintf("--advertise-kafka-addr localhost:%v", hostPort),
 		},
@@ -59,15 +53,7 @@ func (l *DockerTestStrategy) RunContainer() error {
 		return fmt.Errorf("could not start container: %w", err)
 	}
 
-	pool.MaxWait = 30 * time.Second
-
-	if err = pool.Retry(func() error {
-		err := kafka.CheckHealth(hostPort)
-		if err != nil {
-			fmt.Printf("kafka connection not ready: %v \n", err)
-		}
-		return err
-	}); err != nil {
+	if err = pool.Retry(retryFunc(hostPort)); err != nil {
 		return fmt.Errorf("could not retry the pool: %w", err)
 	}
 
@@ -76,6 +62,16 @@ func (l *DockerTestStrategy) RunContainer() error {
 	l.hostPort = hostPort
 
 	return nil
+}
+
+func retryFunc(hostPort int) func() error {
+	return func() error {
+		err := kafka.CheckHealth(hostPort)
+		if err != nil {
+			fmt.Printf("kafka connection not ready: %v \n", err)
+		}
+		return err
+	}
 }
 
 func (l *DockerTestStrategy) CleanUp() {
