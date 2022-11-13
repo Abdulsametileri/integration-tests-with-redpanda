@@ -62,7 +62,7 @@ func (t *TestContainerStrategy) RunContainer() error {
 	return nil
 }
 
-func (t *TestContainerStrategy) Cleanup() {
+func (t *TestContainerStrategy) CleanUp() {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFunc()
 
@@ -71,6 +71,6 @@ func (t *TestContainerStrategy) Cleanup() {
 	}
 }
 
-func (t *TestContainerStrategy) GetHostPort() int {
-	return t.hostPort
+func (t *TestContainerStrategy) GetBrokerAddresses() []string {
+	return []string{fmt.Sprintf("localhost:%d", t.hostPort)}
 }

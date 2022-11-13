@@ -78,14 +78,10 @@ func (l *DockerTestStrategy) RunContainer() error {
 	return nil
 }
 
-func (l *DockerTestStrategy) Cleanup() {
+func (l *DockerTestStrategy) CleanUp() {
 	if err := l.pool.Purge(l.container); err != nil {
 		log.Printf("Could not purge container: %s\n", err)
 	}
-}
-
-func (l *DockerTestStrategy) GetHostPort() int {
-	return l.hostPort
 }
 
 func (l *DockerTestStrategy) StreamContainerLogsToStdout() {
@@ -105,4 +101,8 @@ func (l *DockerTestStrategy) StreamContainerLogsToStdout() {
 			log.Printf("Could not stream container logs to stdout: %s", err)
 		}
 	}()
+}
+
+func (l *DockerTestStrategy) GetBrokerAddresses() []string {
+	return []string{fmt.Sprintf("localhost:%d", l.hostPort)}
 }
