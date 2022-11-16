@@ -3,11 +3,9 @@ package testcontainer
 import (
 	"context"
 	"fmt"
-	"github.com/docker/go-connections/nat"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"log"
-	"net"
 	"time"
 )
 
@@ -17,21 +15,12 @@ type TestContainerWrapper struct {
 }
 
 func (t *TestContainerWrapper) RunContainer() error {
-	hostPort, err := getFreePort()
-	if err != nil {
-		return fmt.Errorf("could not get free hostPort: %w", err)
-	}
-
 	req := testcontainers.ContainerRequest{
 		Image: fmt.Sprintf("%s:%s", RedpandaImage, RedpandaVersion),
 		ExposedPorts: []string{
-			fmt.Sprintf("%d:%d/tcp", hostPort, hostPort),
+			"9092:9092/tcp",
 		},
-		Cmd: []string{
-			"redpanda",
-			"start",
-			"--kafka-addr", fmt.Sprintf("0.0.0.0:%d", hostPort),
-		},
+		Cmd:        []string{"redpanda", "start"},
 		WaitingFor: wait.ForLog("Successfully started Redpanda!"),
 		AutoRemove: true,
 	}
@@ -44,7 +33,7 @@ func (t *TestContainerWrapper) RunContainer() error {
 		return fmt.Errorf("could not create container: %w", err)
 	}
 
-	mPort, err := container.MappedPort(context.Background(), nat.Port(fmt.Sprintf("%d", hostPort)))
+	mPort, err := container.MappedPort(context.Background(), "9092")
 	if err != nil {
 		return fmt.Errorf("could not get mapped port from the container: %w", err)
 	}
@@ -66,18 +55,4 @@ func (t *TestContainerWrapper) CleanUp() {
 
 func (t *TestContainerWrapper) GetBrokerAddresses() []string {
 	return []string{fmt.Sprintf("localhost:%d", t.hostPort)}
-}
-
-func getFreePort() (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		return 0, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
 }
