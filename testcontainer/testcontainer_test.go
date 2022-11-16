@@ -1,4 +1,4 @@
-package integration_tests_with_redpanda
+package testcontainer
 
 import (
 	"context"
@@ -7,18 +7,16 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"log"
+	"net"
 	"time"
 )
 
-// Implement interface
-var _ IntegrationLibraryStrategy = (*TestContainerStrategy)(nil)
-
-type TestContainerStrategy struct {
+type TestContainerWrapper struct {
 	container testcontainers.Container
 	hostPort  int
 }
 
-func (t *TestContainerStrategy) RunContainer() error {
+func (t *TestContainerWrapper) RunContainer() error {
 	hostPort, err := getFreePort()
 	if err != nil {
 		return fmt.Errorf("could not get free hostPort: %w", err)
@@ -57,7 +55,7 @@ func (t *TestContainerStrategy) RunContainer() error {
 	return nil
 }
 
-func (t *TestContainerStrategy) CleanUp() {
+func (t *TestContainerWrapper) CleanUp() {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFunc()
 
@@ -66,6 +64,20 @@ func (t *TestContainerStrategy) CleanUp() {
 	}
 }
 
-func (t *TestContainerStrategy) GetBrokerAddresses() []string {
+func (t *TestContainerWrapper) GetBrokerAddresses() []string {
 	return []string{fmt.Sprintf("localhost:%d", t.hostPort)}
+}
+
+func getFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
 }

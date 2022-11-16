@@ -1,71 +1,47 @@
-package integration_tests_with_redpanda
+package testcontainer
 
 import (
 	"context"
-	"fmt"
 	"github.com/Abdulsametleri/integration-tests-with-redpanda/kafka"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"log"
-	"net"
-	"os"
 	"testing"
 	"time"
 )
-
-type IntegrationLibraryStrategy interface {
-	RunContainer() error
-	CleanUp()
-	GetBrokerAddresses() []string
-}
-
-type IntegrationTestSuite struct {
-	suite.Suite
-	lib IntegrationLibraryStrategy
-}
 
 const (
 	RedpandaImage   = "docker.vectorized.io/vectorized/redpanda"
 	RedpandaVersion = "v21.8.1"
 )
 
-func TestIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
-
-	s := new(IntegrationTestSuite)
-	s.SetIntegrationLibrary()
-
-	suite.Run(t, s)
-}
-
-func (s *IntegrationTestSuite) SetIntegrationLibrary() {
-	switch os.Getenv("LIBRARY") {
-	case "testcontainers":
-		s.lib = &TestContainerStrategy{}
-	case "dockertest":
-		s.lib = &DockerTestStrategy{}
-	default:
-		fmt.Println("`LIBRARY` environment variable is not set, dockertest is used as default")
-		s.lib = &DockerTestStrategy{}
-	}
+type IntegrationTestSuite struct {
+	suite.Suite
+	wrapper TestContainerWrapper
 }
 
 func (s *IntegrationTestSuite) SetupSuite() {
-	if err := s.lib.RunContainer(); err != nil {
+	if err := s.wrapper.RunContainer(); err != nil {
 		log.Fatalln(err)
 	}
 }
 
 func (s *IntegrationTestSuite) TearDownSuite() {
-	s.lib.CleanUp()
+	s.wrapper.CleanUp()
+}
+
+func Test_By_Using_Testcontainers(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	suite.Run(t, new(IntegrationTestSuite))
 }
 
 func (s *IntegrationTestSuite) Test_Should_Consume_Successfully() {
 	// Given
 	cfg := &kafka.Config{
-		Brokers: s.lib.GetBrokerAddresses(),
+		Brokers: s.wrapper.GetBrokerAddresses(),
 		Consumer: kafka.ConsumerConfig{
 			GroupID: "consumer-group-1",
 			Topic:   "test-consume",
@@ -94,7 +70,7 @@ func (s *IntegrationTestSuite) Test_Should_Consume_Successfully() {
 func (s *IntegrationTestSuite) Test_Should_Produce_Successfully() {
 	// Given
 	cfg := &kafka.Config{
-		Brokers: s.lib.GetBrokerAddresses(),
+		Brokers: s.wrapper.GetBrokerAddresses(),
 		Consumer: kafka.ConsumerConfig{
 			GroupID: "consumer-group-2",
 			Topic:   "test-produce",
@@ -111,18 +87,4 @@ func (s *IntegrationTestSuite) Test_Should_Produce_Successfully() {
 
 	// Then
 	assert.Nil(s.T(), err)
-}
-
-func getFreePort() (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		return 0, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
 }

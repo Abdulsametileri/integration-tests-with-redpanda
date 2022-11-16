@@ -11,16 +11,13 @@ import (
 	"strconv"
 )
 
-// Implement interface
-var _ IntegrationLibraryStrategy = (*DockerTestStrategy)(nil)
-
-type DockerTestStrategy struct {
+type DockerTestWrapper struct {
 	container *dockertest.Resource
 	pool      *dockertest.Pool
 	hostPort  int
 }
 
-func (l *DockerTestStrategy) RunContainer() error {
+func (l *DockerTestWrapper) RunContainer() error {
 	hostPort, err := getFreePort()
 	if err != nil {
 		return fmt.Errorf("could not get free hostPort: %w", err)
@@ -74,13 +71,17 @@ func retryFunc(hostPort int) func() error {
 	}
 }
 
-func (l *DockerTestStrategy) CleanUp() {
+func (l *DockerTestWrapper) CleanUp() {
 	if err := l.pool.Purge(l.container); err != nil {
 		log.Printf("Could not purge container: %s\n", err)
 	}
 }
 
-func (l *DockerTestStrategy) StreamContainerLogsToStdout() {
+func (l *DockerTestWrapper) GetBrokerAddresses() []string {
+	return []string{fmt.Sprintf("localhost:%d", l.hostPort)}
+}
+
+func (l *DockerTestWrapper) StreamContainerLogsToStdout() {
 	go func() {
 		err := l.pool.Client.Logs(docker.LogsOptions{
 			Context:      context.Background(),
@@ -97,8 +98,4 @@ func (l *DockerTestStrategy) StreamContainerLogsToStdout() {
 			log.Printf("Could not stream container logs to stdout: %s", err)
 		}
 	}()
-}
-
-func (l *DockerTestStrategy) GetBrokerAddresses() []string {
-	return []string{fmt.Sprintf("localhost:%d", l.hostPort)}
 }
