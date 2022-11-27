@@ -22,7 +22,6 @@ func (l *DockerTestWrapper) RunContainer() error {
 	if err != nil {
 		return fmt.Errorf("could not get free hostPort: %w", err)
 	}
-	_ = hostPort
 
 	pool, err := dockertest.NewPool("")
 	if err != nil {
@@ -35,13 +34,13 @@ func (l *DockerTestWrapper) RunContainer() error {
 		Cmd: []string{
 			"redpanda",
 			"start",
-			//fmt.Sprintf("--advertise-kafka-addr localhost:%v", 9092),
+			fmt.Sprintf("--advertise-kafka-addr localhost:%v", hostPort),
 		},
 		ExposedPorts: []string{
 			"9092/tcp",
 		},
 		PortBindings: map[docker.Port][]docker.PortBinding{
-			"9092/tcp": {{HostIP: "localhost", HostPort: strconv.Itoa(9092)}},
+			"9092/tcp": {{HostIP: "localhost", HostPort: strconv.Itoa(hostPort)}},
 		},
 	}, func(config *docker.HostConfig) {
 		config.AutoRemove = true // set AutoRemove to true so that stopped container goes away by itself
@@ -50,13 +49,13 @@ func (l *DockerTestWrapper) RunContainer() error {
 		return fmt.Errorf("could not start container: %w", err)
 	}
 
-	if err = pool.Retry(retryFunc(9092)); err != nil {
+	if err = pool.Retry(retryFunc(hostPort)); err != nil {
 		return fmt.Errorf("could not retry the pool: %w", err)
 	}
 
 	l.pool = pool
 	l.container = container
-	l.hostPort = 9092
+	l.hostPort = hostPort
 
 	return nil
 }
